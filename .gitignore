@@ -1,0 +1,25 @@
+# Python
+__pycache__/
+*.py[oc]
+*.egg-info/
+build/
+dist/
+wheels/
+.venv/
+
+# Firehose artifacts (from test runs)
+.firehose/
+
+# Environment
+.env
+.env.local
+.env.*
+
+# IDE
+.vscode/
+.idea/
+
+# Test/cache
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/

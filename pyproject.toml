@@ -1,0 +1,32 @@
+[project]
+name = "firehose"
+version = "0.1.0"
+description = "Flatten a codebase into a single file, fan out to multiple LLMs via OpenRouter, compare reports."
+readme = "README.md"
+authors = [
+    { name = "Matt Kissinger", email = "matt.m.kissinger@gmail.com" }
+]
+requires-python = ">=3.12"
+dependencies = [
+    "typer>=0.15",
+    "pydantic>=2.10",
+    "pyyaml>=6.0",
+    "rich>=13.9",
+    "openai>=1.60",
+    "httpx>=0.28",
+    "tiktoken>=0.8",
+    "tree-sitter>=0.24",
+]
+
+[project.scripts]
+firehose = "firehose.cli.app:app"
+
+[build-system]
+requires = ["uv_build>=0.10.0,<0.11.0"]
+build-backend = "uv_build"
+
+[dependency-groups]
+dev = [
+    "pytest>=8.3",
+    "pytest-asyncio>=0.25",
+]
