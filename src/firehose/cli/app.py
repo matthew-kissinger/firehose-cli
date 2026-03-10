@@ -544,7 +544,7 @@ def _build_instructions(root: Path, with_manifest: bool, compact: bool) -> str:
             "  are noise that wastes tokens and dilutes the analysis.",
             "- **Exclude at scan time.** Use `--exclude` flags to drop directories and patterns",
             "  before they ever hit the manifest:",
-            '  `firehose scan ./src --exclude "**/examples/**" --exclude "**/vendor/**"`',
+            "  `firehose scan ./src --exclude 'examples' --exclude 'vendor' --exclude '*.test.*'`",
             "- **Check the scan output.** Look at file count and token estimate. If it is over",
             "  500K tokens, you almost certainly included something you should not have.",
             "  Common offenders: test fixtures, generated code, data files, example dirs,",

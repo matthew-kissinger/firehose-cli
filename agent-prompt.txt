@@ -1,0 +1,73 @@
+# Firehose Codebase Analysis - Agent Instructions
+
+You have access to `firehose`, a globally installed CLI that flattens a codebase and sends it to multiple frontier LLMs for independent analysis via OpenRouter. The API key is already configured globally.
+
+## Step 1: Scan the codebase
+
+Target the source code that matters. Exclude tests, examples, vendored deps, generated code.
+
+IMPORTANT: Use single quotes around exclude patterns to prevent shell glob expansion.
+
+```bash
+firehose scan . --exclude '*.test.*' --exclude '*.spec.*' --exclude 'node_modules' --exclude 'vendor' --exclude 'examples' --exclude 'migrations' --exclude 'dist' --exclude 'build'
+```
+
+Adjust the root path (`.` above) to target the relevant source directory. You can point it at `./src` or a subdirectory if the repo is large.
+
+Check the scan output. If it exceeds 500K tokens, narrow the scope:
+- Point scan at a subdirectory instead of root
+- Add more `--exclude` patterns
+- 300K-600K tokens is the sweet spot for analysis quality
+
+## Step 2: Curate the manifest
+
+Read `.firehose/manifest.yaml` after scanning and edit it:
+- Reorder so entrypoints and core domain logic come first (models attend more carefully to what they see early)
+- Remove files that don't warrant review (config boilerplate, generated code, type declarations)
+- Group by domain concern, not directory structure
+
+## Step 3: Flatten and fire
+
+```bash
+firehose flatten
+firehose fire --models anthropic/claude-opus-4.6,openai/gpt-5.4,google/gemini-3.1-pro-preview
+```
+
+All three models run in parallel. This takes 2-5 minutes depending on codebase size. If any model fails, check the error - it's usually a timeout on very large codebases (increase with `--timeout 900`).
+
+## Step 4: Read and cross-reference all reports
+
+Read every file in `.firehose/runs/<latest>/consultations/`. For each finding across all three models:
+
+- **High confidence**: Two or more models independently raise the same concern. These are near-certain real issues.
+- **Single-source insight**: Only one model flags it. Validate against the actual code before including - the model may have spotted something others missed, or it may be wrong.
+- **Contradictions**: Where models disagree, read the relevant code yourself and determine which model is correct. State your reasoning.
+
+## Step 5: Produce the consultation report
+
+Write a single definitive report with this structure:
+
+### Executive Summary
+2-3 sentences. What is this codebase, what shape is it in, what are the highest-priority actions.
+
+### Critical Findings
+Issues that need immediate attention. For each: what the problem is, where it is (file:line), why it matters, what the fix looks like. Note which models flagged it.
+
+### Architecture Assessment
+How the system is structured, whether the abstractions are right, where complexity is concentrated, what would break first at scale.
+
+### Code Quality
+Patterns, anti-patterns, consistency, error handling, security surface. Be specific - reference actual code.
+
+### Recommendations
+Ordered by impact. What to do first, what to do next, what can wait. Be concrete enough that each item is actionable without re-reading the full codebase.
+
+### Model Agreement Matrix
+A table showing which models agreed/disagreed on key findings. This is the evidence base for confidence ratings.
+
+## Rules
+- Do not parrot the model reports. Synthesize them. Your job is to be the expert who read three expert opinions and produced the definitive one.
+- Every claim must trace back to actual code. No vague generalities.
+- If all three models praised something, say so briefly. Spend your words on what needs to change.
+- The output is for a human who will read it once and make decisions. Optimize for that.
+- Save the final report to the project root as `consultation-report.md`.

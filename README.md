@@ -34,7 +34,7 @@ That's it. `firehose` is now available from any directory.
 firehose analyze ./src --models anthropic/claude-opus-4.6,openai/gpt-5.4,google/gemini-3.1-pro-preview
 
 # Or step by step for more control
-firehose scan ./src --exclude "**/vendor/**" --exclude "**/examples/**"
+firehose scan ./src --exclude 'vendor' --exclude 'examples' --exclude '*.test.*'
 # Edit .firehose/manifest.yaml - reorder, remove, regroup
 firehose flatten
 firehose fire --models anthropic/claude-opus-4.6,openai/gpt-5.4,google/gemini-3.1-pro-preview
