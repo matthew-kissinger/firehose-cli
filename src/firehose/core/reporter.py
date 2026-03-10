@@ -93,27 +93,59 @@ def load_reports(snap_dir: Path) -> dict[str, str]:
 
 
 def build_comparison_prompt(reports: dict[str, str]) -> str:
-    """Build a prompt asking a model to synthesize multiple reports."""
+    """Build a prompt asking a model to synthesize multiple consultation reports."""
+    model_names = list(reports.keys())
+    model_count = len(model_names)
+
     parts = [
-        "You are synthesizing analysis reports from multiple AI models that each",
-        "independently reviewed the same codebase. Your job is to identify patterns",
-        "of agreement and disagreement across these reports.",
+        f"You are synthesizing {model_count} independent code review consultations.",
+        f"Each was produced by a different frontier model ({', '.join(model_names)})",
+        "reviewing the exact same codebase. No model saw any other model's report.",
         "",
-        "For each report below, a different model reviewed the same code and wrote",
-        "its analysis independently. No model saw any other model's report.",
+        "Your job is to find where they agree, where they disagree, and what each",
+        "uniquely caught. Be concrete - reference specific file paths, function names,",
+        "and code patterns from the reports. Do not summarize at a high level when the",
+        "reports contain specific evidence.",
         "",
-        "Produce a comparison that:",
-        "1. CONVERGENCE: Concerns or observations raised independently by multiple models (high-confidence findings)",
-        "2. DIVERGENCE: Areas where models disagree or focus on different things (flagged for human attention)",
-        "3. UNIQUE INSIGHTS: Notable observations that only one model caught",
+        "The reports vary in length and depth. A shorter report is not worse - it may",
+        "just focus on fewer things more precisely. Judge by specificity and correctness,",
+        "not volume.",
         "",
-        "Do not editorialize. Do not rank the models. Just surface the patterns.",
+        "## Structure your synthesis as follows:",
+        "",
+        "### High-Confidence Findings (convergence)",
+        "Concerns raised independently by 2+ models. For each, cite which models raised",
+        "it and the specific files/code they referenced. These are the findings most",
+        "likely to be real and important.",
+        "",
+        "### Disputed or Divergent Areas",
+        "Where models disagree on severity, root cause, or recommended fix. Or where",
+        "they focus on the same area but reach different conclusions. Flag these for",
+        "human review with enough context to evaluate.",
+        "",
+        "### Unique Findings",
+        "Specific bugs, architectural issues, or insights that only one model caught.",
+        "These are higher-risk (single source) but may be the most valuable if correct.",
+        "Note which model found each one.",
+        "",
+        "### Prioritized Action Items",
+        "Based on the full synthesis, list the top 5-10 concrete actions in priority",
+        "order. For each, note the confidence level (high = convergence, medium = single",
+        "model but specific, low = subjective/stylistic).",
+        "",
+        "Do not editorialize on the models themselves. Do not rank them. Focus entirely",
+        "on the codebase findings.",
+        "",
+        "---",
         "",
     ]
 
     for model, report in reports.items():
-        parts.append(f"=== REPORT FROM: {model} ===")
+        parts.append(f"=== CONSULTATION FROM: {model} ===")
+        parts.append("")
         parts.append(report)
+        parts.append("")
+        parts.append(f"=== END {model} ===")
         parts.append("")
 
     return "\n".join(parts)

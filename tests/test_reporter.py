@@ -73,8 +73,11 @@ def test_build_comparison_prompt():
     prompt = build_comparison_prompt(reports)
     assert "model-a" in prompt
     assert "model-b" in prompt
-    assert "CONVERGENCE" in prompt
-    assert "DIVERGENCE" in prompt
+    assert "Report A content" in prompt
+    assert "Report B content" in prompt
+    assert "High-Confidence Findings" in prompt
+    assert "Unique Findings" in prompt
+    assert "Prioritized Action Items" in prompt
 
 
 def test_save_comparison():

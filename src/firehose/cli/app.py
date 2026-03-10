@@ -54,13 +54,65 @@ def init(
         console.print(f"[yellow]Config already exists at {fh_dir / 'config.yaml'}[/yellow]")
         raise typer.Abort()
 
-    config = FirehoseConfig()
-    config_path = save_config(config, root)
+    fh_dir.mkdir(parents=True, exist_ok=True)
+
+    # Write a human-readable commented config
+    config_path = fh_dir / "config.yaml"
+    config_path.write_text(
+        "# Firehose CLI configuration\n"
+        "# Docs: https://github.com/matthew-kissinger/firehose-cli\n"
+        "\n"
+        "openrouter:\n"
+        "  # Environment variable containing your OpenRouter API key\n"
+        "  # Get one at https://openrouter.ai/settings/keys\n"
+        "  api_key_env: OPENROUTER_API_KEY\n"
+        "\n"
+        "defaults:\n"
+        "  # Models to use for analysis (override with --models flag)\n"
+        "  models:\n"
+        "    - anthropic/claude-opus-4.6\n"
+        "    - openai/gpt-5.4\n"
+        "    - google/gemini-3.1-pro-preview\n"
+        "\n"
+        "  # Model used for cross-model comparison synthesis\n"
+        "  synthesis_model: anthropic/claude-opus-4.6\n"
+        "\n"
+        "  # Max models running at once\n"
+        "  max_concurrent: 5\n"
+        "\n"
+        "  # Per-model timeout in seconds (these are big jobs)\n"
+        "  timeout_seconds: 600\n"
+        "\n"
+        "  # Output token budget per model (generous for thorough reports)\n"
+        "  max_tokens: 16384\n"
+        "\n"
+        "  # Reasoning effort: high or xhigh (passed to models that support it)\n"
+        "  reasoning_effort: high\n"
+        "\n"
+        "  # Response format: markdown (recommended) or json\n"
+        "  response_format: markdown\n"
+        "\n"
+        "scan:\n"
+        "  # Patterns excluded from every scan (extend with --exclude flag)\n"
+        "  default_exclude:\n"
+        "    - '**/*.test.*'\n"
+        "    - '**/*.spec.*'\n"
+        "    - '**/node_modules/**'\n"
+        "    - '**/.git/**'\n"
+        "    - '**/dist/**'\n"
+        "    - '**/build/**'\n"
+        "    - '**/*.lock'\n"
+        "    - '**/*.map'\n"
+        "    - '**/__pycache__/**'\n"
+        "    - '**/.venv/**'\n",
+        encoding="utf-8",
+    )
 
     # Create .gitignore inside .firehose
     gitignore = fh_dir / ".gitignore"
     gitignore.write_text(
-        "# Keep manifest, ignore everything else\n"
+        "# Keep manifest (it's the curated flattening plan)\n"
+        "# Ignore config (may reference API keys) and run artifacts\n"
         "config.yaml\n"
         "runs/\n",
         encoding="utf-8",
@@ -69,6 +121,7 @@ def init(
     console.print(f"[green]Initialized .firehose/ at {fh_dir}[/green]")
     console.print(f"  Config: {config_path}")
     console.print(f"  .gitignore: {gitignore}")
+    console.print(f"\n  Next: set OPENROUTER_API_KEY and run 'firehose scan <root>'")
 
 
 @app.command()
@@ -267,7 +320,7 @@ def report(
 
     reports = load_reports(snap_dir)
     if not reports:
-        console.print(f"[red]No reports found in {snap_dir / 'reports'}[/red]")
+        console.print(f"[red]No consultations found in {snap_dir / 'consultations'}[/red]")
         raise typer.Exit(1)
 
     console.print(f"\n[bold]Synthesizing {len(reports)} reports...[/bold]")
@@ -277,16 +330,11 @@ def report(
     # Build comparison prompt and send to synthesis model
     comparison_prompt = build_comparison_prompt(reports)
 
-    # Use first model from the run if no synthesis model specified
-    if not synthesis_model:
-        meta_path = snap_dir / "meta.json"
-        if meta_path.exists():
-            meta_data = json.loads(meta_path.read_text(encoding="utf-8"))
-            synthesis_model = meta_data.get("models_requested", [None])[0]
-        if not synthesis_model:
-            synthesis_model = list(reports.keys())[0]
-
     config = load_config(root)
+
+    # Use configured synthesis model as default
+    if not synthesis_model:
+        synthesis_model = config.defaults.synthesis_model
     console.print(f"\n  Synthesis model: {synthesis_model}")
 
     responses = asyncio.run(
@@ -385,7 +433,7 @@ def analyze(
         console.rule("Step 4: Report")
         reports = load_reports(snap_dir)
         comparison_prompt = build_comparison_prompt(reports)
-        synthesis_model = model_list[0]
+        synthesis_model = config.defaults.synthesis_model
         console.print(f"  Synthesizing with {synthesis_model}...")
 
         synth_responses = asyncio.run(

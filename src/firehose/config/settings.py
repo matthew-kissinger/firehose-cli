@@ -19,6 +19,7 @@ class DefaultsConfig(BaseModel):
         "openai/gpt-5.4",
         "google/gemini-3.1-pro-preview",
     ])
+    synthesis_model: str = "anthropic/claude-opus-4.6"
     max_concurrent: int = 5
     timeout_seconds: int = 600
     response_format: str = "markdown"
@@ -92,5 +93,10 @@ def get_api_key(config: FirehoseConfig | None = None) -> str:
     env_var = (config or FirehoseConfig()).openrouter.api_key_env
     key = os.environ.get(env_var, "")
     if not key:
-        raise ValueError(f"API key not found. Set {env_var} environment variable.")
+        raise ValueError(
+            f"OpenRouter API key not found.\n"
+            f"  Set the {env_var} environment variable:\n"
+            f"    export {env_var}=sk-or-v1-...\n"
+            f"  Get a key at https://openrouter.ai/settings/keys"
+        )
     return key
