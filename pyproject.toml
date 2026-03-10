@@ -1,12 +1,20 @@
 [project]
-name = "firehose"
-version = "0.1.0"
+name = "firehose-cli"
+version = "0.2.0"
 description = "Flatten a codebase into a single file, fan out to multiple LLMs via OpenRouter, compare reports."
 readme = "README.md"
+license = "MIT"
 authors = [
     { name = "Matt Kissinger", email = "matt.m.kissinger@gmail.com" }
 ]
 requires-python = ">=3.12"
+keywords = ["llm", "codebase", "analysis", "openrouter", "multi-model", "code-review"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Environment :: Console",
+    "Intended Audience :: Developers",
+    "Topic :: Software Development :: Quality Assurance",
+]
 dependencies = [
     "typer>=0.15",
     "pydantic>=2.10",
@@ -14,9 +22,15 @@ dependencies = [
     "rich>=13.9",
     "openai>=1.60",
     "httpx>=0.28",
+    "platformdirs>=4.0",
     "tiktoken>=0.8",
     "tree-sitter>=0.24",
 ]
+
+[project.urls]
+Homepage = "https://github.com/matthew-kissinger/firehose-cli"
+Repository = "https://github.com/matthew-kissinger/firehose-cli"
+Issues = "https://github.com/matthew-kissinger/firehose-cli/issues"
 
 [project.scripts]
 firehose = "firehose.cli.app:app"
@@ -24,6 +38,9 @@ firehose = "firehose.cli.app:app"
 [build-system]
 requires = ["uv_build>=0.10.0,<0.11.0"]
 build-backend = "uv_build"
+
+[tool.uv.build-backend]
+module-name = "firehose"
 
 [dependency-groups]
 dev = [

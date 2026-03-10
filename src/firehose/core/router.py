@@ -17,7 +17,7 @@ def create_client(config: FirehoseConfig | None = None) -> AsyncOpenAI:
         base_url="https://openrouter.ai/api/v1",
         api_key=get_api_key(config),
         default_headers={
-            "HTTP-Referer": "https://github.com/user/firehose",
+            "HTTP-Referer": "https://github.com/mkissinger/firehose-cli",
             "X-Title": "Firehose CLI",
         },
     )
@@ -36,10 +36,18 @@ async def fire_model(
     """Send payload to a single model and capture response."""
     provider = model.split("/")[0] if "/" in model else "unknown"
 
+    # Cap max_tokens to provider limits (Gemini max is 65536)
+    provider_max = {"google": 65536}
+    max_tokens = min(max_tokens, provider_max.get(provider, max_tokens))
+
     async with sem:
         t0 = time.monotonic()
         try:
-            extra_body: dict = {"reasoning_effort": reasoning_effort}
+            extra_body: dict = {}
+
+            # Use the correct OpenRouter reasoning parameter format
+            if reasoning_effort and reasoning_effort != "none":
+                extra_body["reasoning"] = {"effort": reasoning_effort}
 
             if response_format == "json":
                 extra_body["response_format"] = {"type": "json_object"}

@@ -13,9 +13,12 @@ from rich.table import Table
 
 from firehose.config.settings import (
     FirehoseConfig,
+    get_credentials_path,
     get_firehose_dir,
     load_config,
+    load_credentials,
     save_config,
+    save_credentials,
     MANIFEST_FILE,
 )
 from firehose.core.flattener import flatten
@@ -42,6 +45,52 @@ app = typer.Typer(
     no_args_is_help=True,
 )
 console = Console()
+
+
+@app.command()
+def auth(
+    key: Optional[str] = typer.Option(None, "--key", "-k", help="API key (non-interactive)"),
+    show: bool = typer.Option(False, "--show", help="Display stored key info"),
+    remove: bool = typer.Option(False, "--remove", help="Remove stored credentials"),
+):
+    """Store your OpenRouter API key for global use."""
+    creds_path = get_credentials_path()
+
+    if remove:
+        if creds_path.exists():
+            creds_path.unlink()
+            console.print(f"Removed credentials file: {creds_path}")
+        else:
+            console.print("No credentials file found.")
+        return
+
+    if show:
+        creds = load_credentials()
+        api_key = creds.get("OPENROUTER_API_KEY", "")
+        if api_key:
+            masked = api_key[:8] + "..." + api_key[-4:] if len(api_key) > 12 else "***"
+            console.print(f"  Key: {masked}")
+            console.print(f"  File: {creds_path}")
+        else:
+            console.print("No API key stored. Run 'firehose auth' to set one.")
+        return
+
+    if not key:
+        key = typer.prompt("OpenRouter API key", hide_input=True)
+
+    if not key or not key.strip():
+        console.print("[red]No key provided.[/red]")
+        raise typer.Exit(1)
+
+    key = key.strip()
+    creds = load_credentials()
+    creds["OPENROUTER_API_KEY"] = key
+    save_credentials(creds)
+
+    masked = key[:8] + "..." + key[-4:] if len(key) > 12 else "***"
+    console.print(f"[green]API key saved.[/green]")
+    console.print(f"  Key: {masked}")
+    console.print(f"  File: {creds_path}")
 
 
 @app.command()
@@ -83,8 +132,8 @@ def init(
         "  # Per-model timeout in seconds (these are big jobs)\n"
         "  timeout_seconds: 600\n"
         "\n"
-        "  # Output token budget per model (generous for thorough reports)\n"
-        "  max_tokens: 16384\n"
+        "  # Output token budget per model (includes reasoning token overhead)\n"
+        "  max_tokens: 128000\n"
         "\n"
         "  # Reasoning effort: high or xhigh (passed to models that support it)\n"
         "  reasoning_effort: high\n"
@@ -196,7 +245,7 @@ def fire(
     prompt_path: Optional[Path] = typer.Option(None, "--prompt", "-p", help="Custom prompt file"),
     max_concurrent: int = typer.Option(5, "--max-concurrent", help="Concurrency limit"),
     timeout: int = typer.Option(600, "--timeout", help="Per-model timeout in seconds"),
-    max_tokens: int = typer.Option(16384, "--max-tokens", help="Output token budget per model"),
+    max_tokens: int = typer.Option(128000, "--max-tokens", help="Output token budget per model"),
     reasoning_effort: str = typer.Option("high", "--reasoning-effort", help="high or xhigh"),
     response_format: str = typer.Option("markdown", "--response-format", help="markdown or json"),
     root: Path = typer.Option(Path("."), "--root", "-r", help="Codebase root"),
@@ -342,7 +391,7 @@ def report(
             [synthesis_model],
             comparison_prompt,
             config,
-            max_tokens=16384,
+            max_tokens=128000,
         )
     )
 
@@ -365,7 +414,7 @@ def analyze(
     strip_comments: Optional[bool] = typer.Option(None, "--strip-comments/--no-strip-comments"),
     max_concurrent: int = typer.Option(5, "--max-concurrent"),
     timeout: int = typer.Option(600, "--timeout"),
-    max_tokens: int = typer.Option(16384, "--max-tokens"),
+    max_tokens: int = typer.Option(128000, "--max-tokens"),
     reasoning_effort: str = typer.Option("high", "--reasoning-effort"),
     response_format: str = typer.Option("markdown", "--response-format"),
 ):
@@ -437,7 +486,7 @@ def analyze(
         console.print(f"  Synthesizing with {synthesis_model}...")
 
         synth_responses = asyncio.run(
-            fire_all([synthesis_model], comparison_prompt, config, max_tokens=16384)
+            fire_all([synthesis_model], comparison_prompt, config, max_tokens=128000)
         )
         if synth_responses and synth_responses[0].status == "complete":
             save_comparison(snap_dir, synth_responses[0].raw_response)
@@ -522,7 +571,7 @@ def _build_instructions(root: Path, with_manifest: bool, compact: bool) -> str:
             "- `--models` - Comma-separated model IDs (e.g. anthropic/claude-opus-4-6,openai/gpt-5.4)",
             "- `--exclude <glob>` - Exclude patterns at scan time (repeatable)",
             "- `--prompt <path>` - Custom analysis prompt (replaces default)",
-            "- `--max-tokens <n>` - Output budget per model (default: 16384)",
+            "- `--max-tokens <n>` - Output budget per model (default: 128000)",
             "- `--reasoning-effort <level>` - high or xhigh",
             "- `--include-docs/--no-include-docs` - Include/exclude documentation",
             "- `--strip-comments/--no-strip-comments` - Override comment stripping at flatten time",
